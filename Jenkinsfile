@@ -8,6 +8,9 @@ pipeline {
         JWT_SECRET_KEY = 'jenkins-test-secret-not-for-production'
         JWT_ALGORITHM = 'HS256'
         ACCESS_TOKEN_EXPIRE_MINUTES = '30'
+
+        REGISTRY = 'ghcr.io'
+        IMAGE_NAME = 'ghcr.io/caribbeancool/backend-platform'
     }
 
     stages {
@@ -42,26 +45,55 @@ pipeline {
 
         stage('Production Image') {
             steps {
+                script {
+                    env.IMAGE_TAG = sh(
+                        script: 'git rev-parse --short HEAD',
+                        returnStdout: true
+                    ).trim()
+                }
+
                 sh '''
                     docker build \
-                      --target production \
-                      -t backend-platform:jenkins .
+                    --target production \
+                    --label org.opencontainers.image.source=https://github.com/CaribbeanCool/backend-platform \
+                    --label org.opencontainers.image.revision=$GIT_COMMIT \
+                    -t $IMAGE_NAME:$IMAGE_TAG .
                 '''
             }
         }
+        stage('Push Image') {
+            steps {
+                withCredentials([
+                    usernamePassword(
+                        credentialsId: 'ghcr-credentials',
+                        usernameVariable: 'GHCR_USERNAME',
+                        passwordVariable: 'GHCR_TOKEN'
+                    )
+                ]) {
+                    sh '''
+                        echo "$GHCR_TOKEN" | docker login $REGISTRY \
+                        -u "$GHCR_USERNAME" \
+                        --password-stdin
+
+                        docker push $IMAGE_NAME:$IMAGE_TAG
+                    '''
+                }
+    }
+}
     }
 
     post {
         always {
+            sh 'docker logout ghcr.io || true'
             echo 'Pipeline finished.'
         }
 
         success {
-            echo 'All CI quality gates passed.'
+            echo 'All CI quality gates passed and the image was published.'
         }
 
         failure {
-            echo 'At least one CI quality gate failed.'
+            echo 'At least one pipeline stage failed.'
         }
     }
 }
