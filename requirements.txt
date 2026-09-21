@@ -4,14 +4,6 @@ sqlalchemy
 psycopg[binary]
 pydantic-settings
 alembic
-ruff
-
-# Testing
-pytest
-httpx
-pytest-cov
-
-# AUTH
 PyJWT
 pwdlib[argon2]
 email-validator
