@@ -53,12 +53,12 @@ def get_current_user(
 
         user_id = int(payload["sub"])
 
-    except (InvalidTokenError, KeyError, ValueError):
+    except (InvalidTokenError, KeyError, ValueError) as err:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or expired token",
             headers={"WWW-Authenticate": "Bearer"},
-        )
+        ) from err
 
     user = UserRepository.get_by_id(
         db,
